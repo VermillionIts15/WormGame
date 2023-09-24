@@ -1,0 +1,247 @@
+import pygame
+import random
+import os
+
+# Initialize Pygame
+pygame.init()
+
+# Constants
+WIDTH, HEIGHT = 640, 480
+GRID_SIZE = 20
+GRID_WIDTH = WIDTH // GRID_SIZE
+GRID_HEIGHT = HEIGHT // GRID_SIZE
+SNAKE_SPEED = 5
+
+# Colors
+WHITE = (255, 255, 255)
+GREEN = (0, 255, 0)
+RED = (255, 0, 0)
+
+# Directions
+UP = (0, -1)
+DOWN = (0, 1)
+LEFT = (-1, 0)
+RIGHT = (1, 0)
+
+# Game states
+MAIN_MENU = 0
+PLAYING = 1
+GAME_OVER = 2
+LEADERBOARD = 3  # New game state for leaderboard
+
+# File paths
+SAVE_FILE = "best_runs.txt"
+
+# Create the screen
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Worm Game")
+
+# Initialize the snake
+snake = [(GRID_WIDTH // 2, GRID_HEIGHT // 2)]
+snake_direction = RIGHT
+
+# Initialize the food
+food = (random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1))
+
+# Game state
+game_state = MAIN_MENU
+
+# Main menu variables
+font = pygame.font.Font(None, 36)
+menu_font = pygame.font.Font(None, 24)
+menu_text = font.render("Press SPACE to Play", True, GREEN)
+
+# Modify menu_best_runs to store tuples of (run name, score)
+menu_best_runs = [("Run 1", 0), ("Run 2", 0), ("Run 3", 0)]
+
+menu_username = "User"
+menu_credits = "Credits: VermillionIts15"
+
+# Game Over variables
+game_over_text = font.render("Game Over - Press SPACE to Play Again", True, RED)
+death_menu_text = font.render("You Died!", True, RED)
+play_again_button = pygame.Rect(WIDTH // 4, HEIGHT - 80, WIDTH // 4, 40)
+menu_button = pygame.Rect(WIDTH // 2, HEIGHT - 80, WIDTH // 4, 40)
+
+# Leaderboard variables
+leaderboard_title = font.render("Leaderboard", True, GREEN)
+leaderboard_button = pygame.Rect(WIDTH // 2 - 100, HEIGHT - 80, 200, 40)
+
+def load_best_runs():
+    if os.path.exists(SAVE_FILE):
+        with open(SAVE_FILE, "r") as file:
+            lines = file.readlines()
+            return [line.strip().split(":") for line in lines]
+    return []
+
+def save_best_runs(best_runs):
+    with open(SAVE_FILE, "w") as file:
+        for run in best_runs:
+            file.write(f"{run[0]}:{run[1]}\n")
+
+def update_menu_text():
+    menu_text_surface = font.render(f"Press SPACE to Play", True, GREEN)
+    best_runs_text = "\n".join(f"{i+1}. {name}: {score}" for i, (name, score) in enumerate(menu_best_runs))
+    best_runs_surface = menu_font.render(best_runs_text, True, GREEN)
+    username_surface = menu_font.render(f"Welcome, {menu_username}", True, GREEN)
+    credits_surface = menu_font.render(menu_credits, True, GREEN)
+
+    return (
+        menu_text_surface,
+        best_runs_surface,
+        username_surface,
+        credits_surface,
+    )
+
+def draw_menu():
+    screen.fill(WHITE)
+    menu_text_surface, best_runs_surface, username_surface, credits_surface = update_menu_text()
+    
+    screen.blit(menu_text_surface, (WIDTH // 2 - 180, HEIGHT // 2 - 18))
+    screen.blit(best_runs_surface, (20, 20))
+    screen.blit(username_surface, (20, HEIGHT - 40))
+    screen.blit(credits_surface, (20, HEIGHT - 20))
+
+def draw_game_over():
+    screen.fill(WHITE)
+    screen.blit(game_over_text, (WIDTH // 2 - 300, HEIGHT // 2 - 18))
+    pygame.draw.rect(screen, GREEN, play_again_button)
+    pygame.draw.rect(screen, RED, menu_button)
+    screen.blit(death_menu_text, (WIDTH // 2 - 60, HEIGHT // 2 - 60))
+    pygame.draw.rect(screen, GREEN, play_again_button)
+    pygame.draw.rect(screen, RED, menu_button)
+    play_again_surface = font.render("Play Again", True, WHITE)
+    menu_surface = font.render("Menu", True, WHITE)
+    screen.blit(play_again_surface, (play_again_button.x + 30, play_again_button.y + 10))
+    screen.blit(menu_surface, (menu_button.x + 60, menu_button.y + 10))
+
+def draw_leaderboard():
+    screen.fill(WHITE)
+    screen.blit(leaderboard_title, (WIDTH // 2 - 100, 20))
+    pygame.draw.rect(screen, RED, menu_button)
+    screen.blit(menu_text, (menu_button.x + 60, menu_button.y + 10))
+    pygame.draw.rect(screen, GREEN, menu_button)
+
+def open_github_profile():
+    import webbrowser
+    webbrowser.open("https://github.com/VermillionIts15")
+
+def draw_snake():
+    for segment in snake:
+        pygame.draw.rect(
+            screen, GREEN, (segment[0] * GRID_SIZE, segment[1] * GRID_SIZE, GRID_SIZE, GRID_SIZE)
+        )
+
+def draw_food():
+    pygame.draw.rect(
+        screen, RED, (food[0] * GRID_SIZE, food[1] * GRID_SIZE, GRID_SIZE, GRID_SIZE)
+    )
+
+# Load best runs
+menu_best_runs = load_best_runs()
+
+# Get PC username
+menu_username = os.getlogin()
+
+# Game loop
+clock = pygame.time.Clock()
+while True:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            exit()
+        elif event.type == pygame.KEYDOWN:
+            if game_state == MAIN_MENU and event.key == pygame.K_SPACE:
+                # Start playing the game
+                game_state = PLAYING
+                snake = [(GRID_WIDTH // 2, GRID_HEIGHT // 2)]
+                snake_direction = RIGHT
+                food = (random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1))
+            elif game_state == PLAYING:
+                if event.key == pygame.K_UP and snake_direction != DOWN:
+                    snake_direction = UP
+                elif event.key == pygame.K_DOWN and snake_direction != UP:
+                    snake_direction = DOWN
+                elif event.key == pygame.K_LEFT and snake_direction != RIGHT:
+                    snake_direction = LEFT
+                elif event.key == pygame.K_RIGHT and snake_direction != LEFT:
+                    snake_direction = RIGHT
+            elif game_state == GAME_OVER and event.key == pygame.K_SPACE:
+                # Restart the game
+                game_state = PLAYING
+                snake = [(GRID_WIDTH // 2, GRID_HEIGHT // 2)]
+                snake_direction = RIGHT
+                food = (random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1))
+            elif game_state == MAIN_MENU:
+                if event.key == pygame.K_d:
+                    # Delete save file
+                    if os.path.exists(SAVE_FILE):
+                        os.remove(SAVE_FILE)
+                        menu_best_runs = []
+                elif event.key == pygame.K_g:
+                    # Open GitHub profile
+                    open_github_profile()
+
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if game_state == GAME_OVER:
+                if play_again_button.collidepoint(event.pos):
+                    # Restart the game
+                    game_state = PLAYING
+                    snake = [(GRID_WIDTH // 2, GRID_HEIGHT // 2)]
+                    snake_direction = RIGHT
+                    food = (random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1))
+                elif menu_button.collidepoint(event.pos):
+                    # Return to the main menu
+                    game_state = MAIN_MENU
+
+            elif game_state == MAIN_MENU:
+                if leaderboard_button.collidepoint(event.pos):
+                    # Show leaderboard
+                    game_state = LEADERBOARD
+
+    if game_state == PLAYING:
+        new_head = (
+            (snake[0][0] + snake_direction[0]) % GRID_WIDTH,
+            (snake[0][1] + snake_direction[1]) % GRID_HEIGHT,
+        )
+        snake.insert(0, new_head)
+
+        # Check for collision with food
+        if snake[0] == food:
+            food = (random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1))
+        else:
+            snake.pop()
+
+        # Check for collision with itself
+        if snake[0] in snake[1:]:
+            game_state = GAME_OVER
+            run_number = len(menu_best_runs) + 1
+            menu_best_runs.append((f"Run {run_number}", len(snake) - 1))
+            menu_best_runs.sort(key=lambda x: x[1], reverse=True)
+            menu_best_runs = menu_best_runs[:3]
+            save_best_runs(menu_best_runs)
+
+        # Clear the screen
+        screen.fill(WHITE)
+
+        # Draw the snake and food
+        draw_snake()
+        draw_food()
+
+        # Update the display
+        pygame.display.flip()
+
+        # Control game speed
+        clock.tick(SNAKE_SPEED)
+
+    elif game_state == MAIN_MENU:
+        draw_menu()
+        pygame.display.flip()
+
+    elif game_state == GAME_OVER:
+        draw_game_over()
+        pygame.display.flip()
+
+    elif game_state == LEADERBOARD:
+        draw_leaderboard()
+        pygame.display.flip()
